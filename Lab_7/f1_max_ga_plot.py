@@ -82,12 +82,12 @@ def main():
     x, y = np.meshgrid(x, y)
     z = np.vectorize(lambda x, y: f1([x, y])[0])(x, y)
 
-    angles = [(30, 30), (60, 30), (90, 30)]
+    angles = [(30, 30), (60, 30), (90, 30), (30,60), (30,90)]
 
     for i, (elev, azim) in enumerate(angles):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        ax.plot_surface(x, y, z, cmap='viridis')
+        ax.plot_surface(x, y, z,alpha =0.75, cmap='viridis')
 
         # Mark the best individual found by the genetic algorithm
         best_x1, best_x2 = best_ind
