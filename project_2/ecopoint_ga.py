@@ -7,13 +7,18 @@ from deap import base, creator, tools, algorithms
 distance_matrix = pd.read_excel("Project2_DistancesMatrix.xlsx", index_col=0).values
 
 # Define the central point
-CENTRAL = 0
+CENTRAL = 1
 
-# Define the number of EcoPoints to visit
-NUM_ECOPOINTS = 30
+# Read EcoPoints from CSV file
+ecopoints_df = pd.read_csv("Ecopoints.csv", header=None)
+# Extract the first row as a list of EcoPoints
+ecopoints = ecopoints_df.iloc[0].tolist()
 
-# Generate random EcoPoints
-ecopoints = random.sample(range(1, 100), NUM_ECOPOINTS)
+# Ensure the list has at most 100 items
+if len(ecopoints) > 100:
+    raise ValueError(f"The file contains more than 100 EcoPoints. Found {len(ecopoints)} entries.")
+
+print(ecopoints)
 
 # Define the fitness function
 def evaluate(individual):
@@ -25,14 +30,14 @@ def evaluate(individual):
     for i in range(len(individual)):
         next_point = individual[i]
         if num_visited >= 30 and next_point in [3, 43, 52, 53, 58, 69, 71, 72, 73, 74, 75, 76, 77, 78, 92]:
-            total_distance += distance_matrix[current_point][next_point] * 1.4  # Apply 40% penalty
+            total_distance += distance_matrix[current_point - 1][next_point - 1] * 1.4  # Apply 40% penalty
         else:
-            total_distance += distance_matrix[current_point][next_point]
+            total_distance += distance_matrix[current_point - 1][next_point - 1]
         current_point = next_point
         num_visited += 1
     
     # Return to the central point
-    total_distance += distance_matrix[current_point][CENTRAL]
+    total_distance += distance_matrix[current_point - 1][CENTRAL - 1]
     return total_distance,
 
 # Set up the Genetic Algorithm
@@ -76,10 +81,11 @@ def main():
     best_distance = evaluate(best_ind)[0]
     
     # Output the result
-    result = f"C, " + ", ".join([f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}E{best_route[i+1]:02d}" for i in range(len(best_route)-1)]) + f", Total={best_distance:.1f}"
+    result = f"C, " + ", ".join([f"{distance_matrix[best_route[i] - 1][best_route[i+1] - 1]:.1f}E{best_route[i+1]:02d}" for i in range(len(best_route)-1)]) + f", Total={best_distance:.1f}"
     print("Best route:", result)
 
 if __name__ == "__main__":
     main()
+
 
 

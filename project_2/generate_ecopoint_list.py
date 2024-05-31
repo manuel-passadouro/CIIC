@@ -1,7 +1,7 @@
 import random
 import csv
 
-# Generate a list of 30 unique random numbers from 1 to 100
+# Generate a list of unique random numbers from 1 to 100
 unique_numbers = random.sample(range(1, 101), 10)
 
 # Define the filename
