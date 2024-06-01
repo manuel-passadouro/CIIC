@@ -1,4 +1,5 @@
 import random
+import time
 import numpy as np
 import pandas as pd
 from deap import base, creator, tools, algorithms
@@ -22,34 +23,12 @@ if len(ecopoints) > 100:
 # Print the original ecopoints list
 print("Original ecopoints:", ecopoints)
 
-
 # Create the mapping and standard lists
 ecopoints_standard = list(range(len(ecopoints)))
 ecopoints_mapping = {i: point for i, point in enumerate(ecopoints)}
 
-print("Original ecopoints:", ecopoints)
 print("Ecopoints mapping:", ecopoints_mapping)
 print("Ecopoints standard:", ecopoints_standard)
-
-# Define the fitness function
-def evaluate_old(individual):
-    total_distance = 0
-    num_visited = 0
-    
-    # Start from the central point
-    current_point = CENTRAL
-    for i in range(len(individual)):
-        next_point = individual[i]
-        if num_visited >= 30 and next_point in [3, 43, 52, 53, 58, 69, 71, 72, 73, 74, 75, 76, 77, 78, 92]:
-            total_distance += distance_matrix[current_point][next_point] * 1.4  # Apply 40% penalty
-        else:
-            total_distance += distance_matrix[current_point][next_point]
-        current_point = next_point
-        num_visited += 1
-    
-    # Return to the central point
-    total_distance += distance_matrix[current_point][CENTRAL]
-    return total_distance,
 
 # Define the fitness function
 def evaluate(individual):
@@ -90,7 +69,7 @@ def setup_ga():
     
     return toolbox
 
-def main():
+def main():    
     toolbox = setup_ga()
     
     # Initialize population
@@ -105,9 +84,16 @@ def main():
     
     hof = tools.HallOfFame(1)
     
+    # Count the time
+    start_time = time.time()
+
     # Run the Genetic Algorithm
     algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=200, stats=stats, halloffame=hof, verbose=True)
     
+    end_time  = time.time()
+    algo_time = end_time - start_time
+    print("Algorithm execution time:", algo_time)
+
     # Retrieve the best individual
     best_ind_standard = hof[0]
     print("best_ind_standard")
@@ -126,9 +112,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
