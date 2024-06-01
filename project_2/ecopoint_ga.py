@@ -3,6 +3,9 @@ import time
 import numpy as np
 import pandas as pd
 from deap import base, creator, tools, algorithms
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('tkagg')  # For interactive graphics in wsl
 
 # Load distance matrix from Excel file
 distance_matrix = pd.read_excel("Project2_DistancesMatrix.xlsx", index_col=0).values
@@ -72,8 +75,11 @@ def setup_ga():
 def main():    
     toolbox = setup_ga()
     
+    # Define the size of population
+    pop_size = 300
+
     # Initialize population
-    population = toolbox.population(n=300)
+    population = toolbox.population(pop_size)
     
     # Define statistics and hall of fame
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -88,10 +94,38 @@ def main():
     start_time = time.time()
 
     # Run the Genetic Algorithm
-    algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=200, stats=stats, halloffame=hof, verbose=True)
-    
+    logbook = algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=200, stats=stats, halloffame=hof, verbose=True)
+
+    # Extract data from logbook
+    gen = []
+    nevals = []
+    avg = []
+    std = []
+    min_ = []
+    max_ = []
+
+    for entry in logbook[1]:
+        gen.append(entry['gen'])
+        nevals.append(entry['nevals'])
+        avg.append(entry['avg'])
+        std.append(entry['std'])
+        min_.append(entry['min'])
+        max_.append(entry['max'])
+
+    logbook_df = pd.DataFrame({
+        'gen': gen,
+        'nevals': nevals,
+        'avg': avg,
+        'std': std,
+        'min': min_,
+        'max': max_
+    })
+    logbook_df.to_csv("Logbook.csv", index=False)
+    print(logbook_df)
+
     end_time  = time.time()
     algo_time = end_time - start_time
+    print()
     print("Algorithm execution time:", algo_time)
 
     # Retrieve the best individual
@@ -108,6 +142,28 @@ def main():
                                 else f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}E{best_route[i+1]:02d}" 
                                 for i in range(len(best_route)-1)]) + f", Total = {best_distance:.1f} Km"
     print("Best route:", result)
+
+    # Re-open the Logbook.csv and extract values from the second line
+    logbook_df = pd.read_csv("Logbook.csv")
+
+    gen = logbook_df['gen'].tolist()
+    nevals = logbook_df['nevals'].tolist()
+    avg = logbook_df['avg'].tolist()
+    std = logbook_df['std'].tolist()
+    min_ = logbook_df['min'].tolist()
+    max_ = logbook_df['max'].tolist()
+
+    # Plot statistics
+    plt.figure()
+    plt.plot(gen, min_, label="Min")
+    plt.plot(gen, max_, label="Max")
+    plt.plot(gen, avg, label="Avg")
+    plt.xlabel("Generation")
+    plt.ylabel("Distance")
+    plt.legend()
+    plt.savefig("plot.png")  # Save the plot as a PNG file
+    plt.close()  # Close the plot to prevent it from being displayed
+    print("Plot saved as plot.png")
 
 
 if __name__ == "__main__":
