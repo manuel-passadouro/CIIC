@@ -8,7 +8,9 @@ from deap import creator
 from deap import tools
 
 # Pandas file
-distances_df = pd.read_excel("Project2_DistancesMatrix.xlsx", index_col=0)
+#distances_df = pd.read_excel("Project2_DistancesMatrix.xlsx", index_col=0)
+distances_df = pd.read_excel("Project2_DistancesMatrix_5x5.xlsx", index_col=0)
+
 # mudar para índices
 distances = distances_df.copy()
 distances = distances.reset_index(drop=True)
@@ -17,18 +19,18 @@ N_POINTS_COLUMNS = len(distances.columns)
 N_POINTS_ROWS = len(distances)
 N_POINTS = N_POINTS_ROWS
 M_POINT_IN = N_POINTS - 1
-#print(len(distances))
-#print("N points:",N_POINTS)
-#print(distances)
+print(len(distances))
+print("N points:",N_POINTS)
+print(distances)
 
 # Functions
 # Evaluation function
 def evalTSP(individual):
-    distance_calc = distances[0][M_POINT_IN]
-    for i in range(1,N_POINTS):
-        distance_calc = distance_calc + distances[individual[i-1]][individual[i]]
-
-    return distance_calc,
+    total_distance = distances[0][individual[0]]  # From central "C" to the first point
+    for i in range(1, N_POINTS):
+        total_distance += distances[individual[i-1]][individual[i]]
+    total_distance += distances[individual[-1]][0]  # From last point back to central "C"
+    return total_distance,
 
 # Code
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -37,6 +39,7 @@ creator.create("Individual", list, fitness=creator.FitnessMin)
 toolbox = base.Toolbox()
 # Attribute generator 
 toolbox.register("attr_int", random.sample, range(N_POINTS), N_POINTS)
+
 # Structure initializers
 toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.attr_int)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -75,15 +78,19 @@ def main():
 
     # Count the time
     start_time = time.time()
+
     # Begin the evolution
     while g < N_GENS: # max(fits) < 100 and g < 100
         # A new generation
         g = g + 1
-        print("-- Generation %i --" % g)
+        #print("-- Generation %i --" % g)
+
         # Select the next generation individuals
         offspring = toolbox.select(pop, len(pop))
+
         # Clone the selected individuals
         offspring = list(map(toolbox.clone, offspring))
+
         # Apply crossover and mutation on the offspring
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
             if random.random() < CXPB:
@@ -95,12 +102,15 @@ def main():
             if random.random() < MUTPB:
                 toolbox.mutate(mutant)
                 del mutant.fitness.values
+
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = map(toolbox.evaluate, invalid_ind)
+
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
         pop[:] = offspring
+
         # Gather all the fitnesses in one list and print the stats
         fits = [ind.fitness.values[0] for ind in pop]
 
@@ -113,14 +123,14 @@ def main():
         max_v[g-1] = max(fits)
         mean_v[g-1] = mean
 
-        print("  Min %s" % min(fits))
-        print("  Max %s" % max(fits))
-        print("  Avg %s" % mean)
-        print("  Std %s" % std)
+        #print("  Min %s" % min(fits))
+        #print("  Max %s" % max(fits))
+        #print("  Avg %s" % mean)
+        #print("  Std %s" % std)
 
         min_id = fits.index(min(fits))
         #print(min_id)
-        print("Best sequence from this generation:",pop[min_id])
+        #print("Best sequence from this generation:",pop[min_id])
 
         # Update HoF
         hof.update(pop)
@@ -131,18 +141,18 @@ def main():
 
     print("Best 5 individuals\n")
     converted_hof = []
-    rotated_sequence = []
     mapping = {num: f'E{num}' if num > 0 else 'C' for num in range(100)}
+
     for i in range(len(hof)):
         sequence = [mapping[num] for num in hof[i]]
         c_index = sequence.index("C")
-        rotated_sequence = sequence[c_index:] + sequence[:c_index]
+        rotated_sequence = sequence[c_index:] + sequence[:c_index] + ["C"]
         converted_hof.append(rotated_sequence)
-        
+
     for i in range(len(hof)):
         print("Sequence", i, ": Distance", evalTSP(hof[i]))
-        #print(hof[i])
         print(converted_hof[i])
+
 
     plt.plot(range(1,N_GENS+1),min_v, label = "Min")
     plt.plot(range(1,N_GENS+1),max_v, label = "Max")
