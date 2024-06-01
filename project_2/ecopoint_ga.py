@@ -2,6 +2,7 @@ import random
 import time
 import numpy as np
 import pandas as pd
+import networkx as nx
 from deap import base, creator, tools, algorithms
 import matplotlib.pyplot as plt
 import matplotlib
@@ -96,6 +97,9 @@ def main():
     # Run the Genetic Algorithm
     logbook = algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=200, stats=stats, halloffame=hof, verbose=True)
 
+    #print("LOGBOOK:")
+    #print (logbook)
+
     # Extract data from logbook
     gen = []
     nevals = []
@@ -159,12 +163,31 @@ def main():
     plt.plot(gen, max_, label="Max")
     plt.plot(gen, avg, label="Avg")
     plt.xlabel("Generation")
-    plt.ylabel("Distance")
+    plt.ylabel("Distance (km)")
     plt.legend()
-    plt.savefig("plot.png")  # Save the plot as a PNG file
+    plt.savefig("max_avg_min.png")  # Save the plot as a PNG file
     plt.close()  # Close the plot to prevent it from being displayed
-    print("Plot saved as plot.png")
+    #print("Plot saved as plot.png")
 
+    # Create a directed graph to visualize the best route
+    G = nx.DiGraph()
+
+    for i in range(len(best_route)-1):
+        G.add_edge(best_route[i], best_route[i+1], weight=distance_matrix[best_route[i]][best_route[i+1]])
+
+    # Draw the graph
+    plt.figure(figsize=(16, 16))
+    pos = nx.circular_layout(G)
+    labels = {node: ('C' if node == CENTRAL else str(node)) for node in G.nodes()}  # Replace 0 with 'C' for the central node
+    nx.draw_networkx_nodes(G, pos, node_color='skyblue', node_size=1000)
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=12, font_weight='bold')
+    nx.draw_networkx_edges(G, pos, edge_color='black', width=1.5)  # Use lines instead of arrows
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=nx.get_edge_attributes(G, 'weight'), font_color='black')
+    nx.draw_networkx_nodes(G, pos, nodelist=[CENTRAL], node_color='red', node_size=1000)  # Paint central node red
+    plt.title('Best Route', fontsize=20, fontweight='bold')  # Bold title
+    plt.savefig("best_route.png", format="png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print("Best route saved as best_route.png")
 
 if __name__ == "__main__":
     main()

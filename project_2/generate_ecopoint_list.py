@@ -2,7 +2,7 @@ import random
 import csv
 
 # Generate a list of unique random numbers from 1 to 100
-unique_numbers = random.sample(range(1, 101), 3)
+unique_numbers = random.sample(range(1, 101), 30)
 
 # Define the filename
 filename = "Ecopoints.csv"
