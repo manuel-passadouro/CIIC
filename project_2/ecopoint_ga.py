@@ -11,11 +11,11 @@ import matplotlib.pyplot as plt
 
 # Define the central and penalty points
 CENTRAL = 0
-PENALTY = [3, 43, 52, 53, 58, 69, 71, 72, 73, 74, 75, 76, 77, 78, 92]
+PENALITY = [3, 43, 52, 53, 58, 69, 71, 72, 73, 74, 75, 76, 77, 78, 92]
 
 # Define the size of population and the number of generations
-POP_SIZE = 300
-NUM_GEN = 200
+POP_SIZE = 1900
+NUM_GEN = 1000
 
 # Load distance matrix from Excel file
 distance_matrix = pd.read_excel("Project2_DistancesMatrix.xlsx", index_col=0).values
@@ -38,7 +38,7 @@ def evaluate(individual, distance_matrix, ecopoints_mapping):
         # Map the individual point from standard to original
         next_point = ecopoints_mapping[individual[i]]
         
-        if num_visited >= 30 and next_point in PENALTY:
+        if num_visited >= 30 and next_point in PENALITY:
             total_distance += distance_matrix[current_point][next_point] * 1.4  # Apply 40% penalty
         else:
             total_distance += distance_matrix[current_point][next_point]
@@ -127,11 +127,23 @@ def main():
     best_route = [CENTRAL] + best_ind_original + [CENTRAL]
     best_distance = evaluate(best_ind_standard, distance_matrix, ecopoints_mapping)[0]
 
-    # Output the result, add starting "C" manually
-    result = "C, " + ", ".join([f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}C" 
-                                if best_route[i+1] == 0 
-                                else f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}E{best_route[i+1]:02d}" 
-                                for i in range(len(best_route)-1)]) + f", Total={best_distance:.1f}"
+    # Check if the route has more than 30 points
+    apply_penalty = len(best_route) > 30
+
+    # Function to get adjusted distance
+    def get_distance(i, j):
+        distance = distance_matrix[i][j]
+        if apply_penalty and (i in PENALITY or j in PENALITY):
+            distance *= 1.4  # Increase distance by 40%
+        return distance
+
+    # Output the result, add starting "C" manually, 
+    # if node is 0 then it's back at the central (should always be the last node).
+    result = "C, " + ", ".join([
+        f"{get_distance(best_route[i], best_route[i+1]):.1f}C" if best_route[i+1] == 0 
+        else f"{get_distance(best_route[i], best_route[i+1]):.1f}E{best_route[i+1]:02d}" 
+        for i in range(len(best_route)-1)
+    ]) + f", Total={best_distance:.2f}"
     print("Best route:")
     print()
     print(result)
