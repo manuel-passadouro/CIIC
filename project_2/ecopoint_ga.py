@@ -50,12 +50,12 @@ def evaluate(individual, distance_matrix, ecopoints_mapping):
     return total_distance,
 
 # Set up the Genetic Algorithm
-def setup_ga(distance_matrix, ecopoints_mapping):
+def setup_ga(distance_matrix, ecopoints_mapping, ecopoints_standard):
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
     
     toolbox = base.Toolbox()
-    toolbox.register("indices", random.sample, range(len(ecopoints_mapping)), len(ecopoints_mapping))
+    toolbox.register("indices", random.sample, range(len(ecopoints_standard)), len(ecopoints_standard))
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.indices)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     
@@ -74,7 +74,7 @@ def main():
     try:
         ecopoints_df = pd.read_csv(args.ecopoints_file, header=None)
     except Exception as e:
-        print(f"Error reading ecopoints file: {e}")
+        print(f"Error reading EcoPoints file: {e}")
         return
     
     # Extract the first row as a list of EcoPoints
@@ -84,17 +84,15 @@ def main():
     if len(ecopoints) > 100:
         raise ValueError(f"The file contains more than 100 EcoPoints. Found {len(ecopoints)} entries.")
 
-    # Print the original ecopoints list
-    print("Original ecopoints:", ecopoints)
-
     # Create the mapping and standard lists
     ecopoints_standard = list(range(len(ecopoints)))
     ecopoints_mapping = {i: point for i, point in enumerate(ecopoints)}
 
-    print("Ecopoints mapping:", ecopoints_mapping)
-    print("Ecopoints standard:", ecopoints_standard)
+    #print("Original ecopoints:", ecopoints)
+    #print("Ecopoints mapping:", ecopoints_mapping)
+    #print("Ecopoints standard:", ecopoints_standard)
 
-    toolbox = setup_ga(distance_matrix, ecopoints_mapping)
+    toolbox = setup_ga(distance_matrix, ecopoints_mapping, ecopoints_standard)
 
     # Initialize population
     population = toolbox.population(n=POP_SIZE)
@@ -106,68 +104,46 @@ def main():
     stats.register("min", np.min)
     stats.register("max", np.max)
     
-    # Save the best 3 individuals
-    hof = tools.HallOfFame(3)
+    # Save the best individual
+    hof = tools.HallOfFame(1)
     
     # Count the time
     start_time = time.time()
 
     # Run the Genetic Algorithm
-    logbook = algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=NUM_GEN, stats=stats, halloffame=hof, verbose=True)
-
-    # Extract data from logbook
-    gen = []
-    nevals = []
-    avg = []
-    std = []
-    min_ = []
-    max_ = []
-
-    for entry in logbook[1]:
-        gen.append(entry['gen'])
-        nevals.append(entry['nevals'])
-        avg.append(entry['avg'])
-        std.append(entry['std'])
-        min_.append(entry['min'])
-        max_.append(entry['max'])
-
-    logbook_df = pd.DataFrame({
-        'gen': gen,
-        'nevals': nevals,
-        'avg': avg,
-        'std': std,
-        'min': min_,
-        'max': max_
-    })
-    logbook_df.to_csv("Logbook.csv", index=False)
-    print(logbook_df)
+    algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=NUM_GEN, stats=stats, halloffame=hof, verbose=False)
 
     end_time  = time.time()
-    algo_time = end_time - start_time
+    total_time = end_time - start_time
     print()
-    print(f"Algorithm execution time: {algo_time:.2f} seconds")
+    print("Algorithm execution time:")
+    print()
+    print(f"{total_time:.2f} seconds")
+    print()
 
-    # Retrieve and print the top 3 individuals from the Hall of Fame
-    for rank, best_ind_standard in enumerate(hof[:3]):
-        print(f"Rank {rank + 1} best_ind_standard:")
-        best_ind_original = [ecopoints_mapping[point] for point in best_ind_standard]
-        best_route = [CENTRAL] + best_ind_original + [CENTRAL]
-        best_distance = evaluate(best_ind_standard, distance_matrix, ecopoints_mapping)[0]
+    # Retrieve and print the best individual from the Hall of Fame
+    best_ind_standard = hof[0]
+    best_ind_original = [ecopoints_mapping[point] for point in best_ind_standard]
+    best_route = [CENTRAL] + best_ind_original + [CENTRAL]
+    best_distance = evaluate(best_ind_standard, distance_matrix, ecopoints_mapping)[0]
 
-        # Output the result, add starting "C" manually
-        result = "C, " + ", ".join([f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}C" 
-                                    if best_route[i+1] == 0 
-                                    else f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}E{best_route[i+1]:02d}" 
-                                    for i in range(len(best_route)-1)]) + f", Total={best_distance:.1f} Km"
-        print(f"Best route (Rank {rank + 1}):", result)
+    # Output the result, add starting "C" manually
+    result = "C, " + ", ".join([f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}C" 
+                                if best_route[i+1] == 0 
+                                else f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}E{best_route[i+1]:02d}" 
+                                for i in range(len(best_route)-1)]) + f", Total={best_distance:.1f}"
+    print("Best route:")
+    print()
+    print(result)
+    print()
 
     # Re-open the Logbook.csv and extract values from the second line
     logbook_df = pd.read_csv("Logbook.csv")
 
     gen = logbook_df['gen'].tolist()
-    nevals = logbook_df['nevals'].tolist()
+    nevals = logbook_df['nevals'].tolist()  # Not being used...
     avg = logbook_df['avg'].tolist()
-    std = logbook_df['std'].tolist()
+    std = logbook_df['std'].tolist()  # Not being used...
     min_ = logbook_df['min'].tolist()
     max_ = logbook_df['max'].tolist()
 
@@ -181,6 +157,7 @@ def main():
     plt.legend()
     plt.savefig("max_avg_min.png")  # Save the plot as a PNG file
     plt.close()  # Close the plot to prevent it from being displayed
+    #print("Statistics saved as max_avg_min.png")
 
     # Create a directed graph to visualize the best route
     G = nx.DiGraph()
@@ -200,7 +177,8 @@ def main():
     plt.title('Best Route', fontsize=20, fontweight='bold')  # Bold title
     plt.savefig("best_route.png", format="png", dpi=300, bbox_inches='tight')
     plt.close()
-    print("Best route saved as best_route.png")
+    #print("Best route saved as best_route.png")
 
 if __name__ == "__main__":
     main()
+
