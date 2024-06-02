@@ -8,6 +8,10 @@ from deap import base, creator, tools, algorithms
 import matplotlib
 matplotlib.use('tkagg')  # For interactive graphics in wsl
 import matplotlib.pyplot as plt
+from colorama import init, Fore
+
+# Initialize colorama
+init(autoreset=True)
 
 # Define the central and penalty points
 CENTRAL = 0
@@ -60,11 +64,18 @@ def setup_ga(distance_matrix, ecopoints_mapping, ecopoints_standard):
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     
     toolbox.register("evaluate", lambda ind: evaluate(ind, distance_matrix, ecopoints_mapping))
-    toolbox.register("mate", tools.cxOrdered)  # Or use tools.cxPartialyMatched
+    toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.05)
     toolbox.register("select", tools.selTournament, tournsize=3)
     
     return toolbox
+
+# Function to get adjusted distance
+def get_distance(current_point, next_point, tracker):
+    distance = distance_matrix[current_point][next_point]
+    if (tracker > 30) and (next_point in PENALITY):
+        distance *= 1.4  # Increase distance by 40%
+    return distance
 
 def main():
     # Parse command-line arguments
@@ -88,10 +99,6 @@ def main():
     ecopoints_standard = list(range(len(ecopoints)))
     ecopoints_mapping = {i: point for i, point in enumerate(ecopoints)}
 
-    #print("Original ecopoints:", ecopoints)
-    #print("Ecopoints mapping:", ecopoints_mapping)
-    #print("Ecopoints standard:", ecopoints_standard)
-
     toolbox = setup_ga(distance_matrix, ecopoints_mapping, ecopoints_standard)
 
     # Initialize population
@@ -111,14 +118,41 @@ def main():
     start_time = time.time()
 
     # Run the Genetic Algorithm
-    algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=NUM_GEN, stats=stats, halloffame=hof, verbose=False)
+    logbook = algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=NUM_GEN, stats=stats, halloffame=hof, verbose=False)
+
+    # Extract data from logbook
+    gen = []
+    nevals = []
+    avg = []
+    std = []
+    min_ = []
+    max_ = []
+
+    for entry in logbook[1]:
+        gen.append(entry['gen'])
+        nevals.append(entry['nevals'])
+        avg.append(entry['avg'])
+        std.append(entry['std'])
+        min_.append(entry['min'])
+        max_.append(entry['max'])
+        
+    logbook_df = pd.DataFrame({
+        'gen': gen,
+        'nevals': nevals,
+        'avg': avg,
+        'std': std,
+        'min': min_,
+        'max': max_
+    })
+    logbook_df.to_csv("Logbook.csv", index=False)
+    #print(logbook_df)
 
     end_time  = time.time()
     total_time = end_time - start_time
     print()
-    print("Algorithm execution time:")
+    print(f"{Fore.YELLOW}Algorithm execution time:")
     print()
-    print(f"{total_time:.2f} seconds")
+    print(f"{Fore.BLUE}{total_time:.2f} seconds")
     print()
 
     # Retrieve and print the best individual from the Hall of Fame
@@ -127,24 +161,17 @@ def main():
     best_route = [CENTRAL] + best_ind_original + [CENTRAL]
     best_distance = evaluate(best_ind_standard, distance_matrix, ecopoints_mapping)[0]
 
-    # Check if the route has more than 30 points
-    apply_penalty = len(best_route) > 30
-
-    # Function to get adjusted distance
-    def get_distance(i, j):
-        distance = distance_matrix[i][j]
-        if apply_penalty and (i in PENALITY or j in PENALITY):
-            distance *= 1.4  # Increase distance by 40%
-        return distance
-
     # Output the result, add starting "C" manually, 
     # if node is 0 then it's back at the central (should always be the last node).
     result = "C, " + ", ".join([
-        f"{get_distance(best_route[i], best_route[i+1]):.1f}C" if best_route[i+1] == 0 
-        else f"{get_distance(best_route[i], best_route[i+1]):.1f}E{best_route[i+1]:02d}" 
+        (Fore.RED if (best_route[i+1] in PENALITY and i >= 30) else Fore.WHITE) +
+        f"{get_distance(best_route[i], best_route[i+1], i):.1f}C" if best_route[i+1] == 0 
+        else (Fore.RED if (best_route[i+1] in PENALITY and i >= 30) else Fore.WHITE) +
+        f"{get_distance(best_route[i], best_route[i+1], i):.1f}E{best_route[i+1]:02d}" 
         for i in range(len(best_route)-1)
-    ]) + f", Total={best_distance:.2f}"
-    print("Best route:")
+    ]) + f", {Fore.BLUE}Total={best_distance:.2f}"
+
+    print(f"{Fore.YELLOW}Best route:")
     print()
     print(result)
     print()
@@ -169,7 +196,6 @@ def main():
     plt.legend()
     plt.savefig("max_avg_min.png")  # Save the plot as a PNG file
     plt.close()  # Close the plot to prevent it from being displayed
-    #print("Statistics saved as max_avg_min.png")
 
     # Create a directed graph to visualize the best route
     G = nx.DiGraph()
@@ -189,8 +215,6 @@ def main():
     plt.title('Best Route', fontsize=20, fontweight='bold')  # Bold title
     plt.savefig("best_route.png", format="png", dpi=300, bbox_inches='tight')
     plt.close()
-    #print("Best route saved as best_route.png")
 
 if __name__ == "__main__":
     main()
-
