@@ -10,10 +10,11 @@ matplotlib.use('tkagg')  # For interactive graphics in wsl
 
 # Load distance matrix from Excel file
 distance_matrix = pd.read_excel("Project2_DistancesMatrix.xlsx", index_col=0).values
-
 print("distance_matrix test", distance_matrix[99][0])
-# Define the central point
+
+# Define the central and penality points
 CENTRAL = 0
+PENALITY = [3, 43, 52, 53, 58, 69, 71, 72, 73, 74, 75, 76, 77, 78, 92]
 
 # Read EcoPoints from CSV file
 ecopoints_df = pd.read_csv("Ecopoints.csv", header=None)
@@ -45,7 +46,7 @@ def evaluate(individual):
         # Map the individual point from standard to original
         next_point = ecopoints_mapping[individual[i]]
         
-        if num_visited >= 30 and next_point in [3, 43, 52, 53, 58, 69, 71, 72, 73, 74, 75, 76, 77, 78, 92]:
+        if num_visited >= 30 and next_point in PENALITY:
             total_distance += distance_matrix[current_point][next_point] * 1.4  # Apply 40% penalty
         else:
             total_distance += distance_matrix[current_point][next_point]
