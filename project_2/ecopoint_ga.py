@@ -1,52 +1,44 @@
-import random
 import time
+import random
+import argparse
 import numpy as np
 import pandas as pd
 import networkx as nx
 from deap import base, creator, tools, algorithms
-import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('tkagg')  # For interactive graphics in wsl
+import matplotlib.pyplot as plt
+
+# Define the central and penalty points
+CENTRAL = 0
+PENALTY = [3, 43, 52, 53, 58, 69, 71, 72, 73, 74, 75, 76, 77, 78, 92]
+
+# Define the size of population and the number of generations
+POP_SIZE = 300
+NUM_GEN = 200
 
 # Load distance matrix from Excel file
 distance_matrix = pd.read_excel("Project2_DistancesMatrix.xlsx", index_col=0).values
-print("distance_matrix test", distance_matrix[99][0])
 
-# Define the central and penality points
-CENTRAL = 0
-PENALITY = [3, 43, 52, 53, 58, 69, 71, 72, 73, 74, 75, 76, 77, 78, 92]
-
-# Read EcoPoints from CSV file
-ecopoints_df = pd.read_csv("Ecopoints.csv", header=None)
-# Extract the first row as a list of EcoPoints
-ecopoints = ecopoints_df.iloc[0].tolist()
-
-# Ensure the list has at most 100 items
-if len(ecopoints) > 100:
-    raise ValueError(f"The file contains more than 100 EcoPoints. Found {len(ecopoints)} entries.")
-
-# Print the original ecopoints list
-print("Original ecopoints:", ecopoints)
-
-# Create the mapping and standard lists
-ecopoints_standard = list(range(len(ecopoints)))
-ecopoints_mapping = {i: point for i, point in enumerate(ecopoints)}
-
-print("Ecopoints mapping:", ecopoints_mapping)
-print("Ecopoints standard:", ecopoints_standard)
+# Function to parse command-line arguments
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Ecopoints List File")
+    parser.add_argument("ecopoints_file", help="Input CSV file containing the Ecopoints index")
+    return parser.parse_args()
 
 # Define the fitness function
-def evaluate(individual):
+def evaluate(individual, distance_matrix, ecopoints_mapping):
     total_distance = 0
     num_visited = 0
     
     # Start from the central point
     current_point = CENTRAL
+
     for i in range(len(individual)):
         # Map the individual point from standard to original
         next_point = ecopoints_mapping[individual[i]]
         
-        if num_visited >= 30 and next_point in PENALITY:
+        if num_visited >= 30 and next_point in PENALTY:
             total_distance += distance_matrix[current_point][next_point] * 1.4  # Apply 40% penalty
         else:
             total_distance += distance_matrix[current_point][next_point]
@@ -58,30 +50,54 @@ def evaluate(individual):
     return total_distance,
 
 # Set up the Genetic Algorithm
-def setup_ga():
+def setup_ga(distance_matrix, ecopoints_mapping):
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
     
     toolbox = base.Toolbox()
-    toolbox.register("indices", random.sample, range(len(ecopoints_standard)), len(ecopoints_standard))
+    toolbox.register("indices", random.sample, range(len(ecopoints_mapping)), len(ecopoints_mapping))
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.indices)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     
-    toolbox.register("evaluate", evaluate)
+    toolbox.register("evaluate", lambda ind: evaluate(ind, distance_matrix, ecopoints_mapping))
     toolbox.register("mate", tools.cxOrdered)  # Or use tools.cxPartialyMatched
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.05)
     toolbox.register("select", tools.selTournament, tournsize=3)
     
     return toolbox
 
-def main():    
-    toolbox = setup_ga()
+def main():
+    # Parse command-line arguments
+    args = parse_arguments()
+
+    # Read EcoPoints from CSV file
+    try:
+        ecopoints_df = pd.read_csv(args.ecopoints_file, header=None)
+    except Exception as e:
+        print(f"Error reading ecopoints file: {e}")
+        return
     
-    # Define the size of population
-    pop_size = 300
+    # Extract the first row as a list of EcoPoints
+    ecopoints = ecopoints_df.iloc[0].tolist()
+
+    # Ensure the list has at most 100 items
+    if len(ecopoints) > 100:
+        raise ValueError(f"The file contains more than 100 EcoPoints. Found {len(ecopoints)} entries.")
+
+    # Print the original ecopoints list
+    print("Original ecopoints:", ecopoints)
+
+    # Create the mapping and standard lists
+    ecopoints_standard = list(range(len(ecopoints)))
+    ecopoints_mapping = {i: point for i, point in enumerate(ecopoints)}
+
+    print("Ecopoints mapping:", ecopoints_mapping)
+    print("Ecopoints standard:", ecopoints_standard)
+
+    toolbox = setup_ga(distance_matrix, ecopoints_mapping)
 
     # Initialize population
-    population = toolbox.population(pop_size)
+    population = toolbox.population(n=POP_SIZE)
     
     # Define statistics and hall of fame
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -90,16 +106,14 @@ def main():
     stats.register("min", np.min)
     stats.register("max", np.max)
     
-    hof = tools.HallOfFame(1)
+    # Save the best 3 individuals
+    hof = tools.HallOfFame(3)
     
     # Count the time
     start_time = time.time()
 
     # Run the Genetic Algorithm
-    logbook = algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=200, stats=stats, halloffame=hof, verbose=True)
-
-    #print("LOGBOOK:")
-    #print (logbook)
+    logbook = algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=NUM_GEN, stats=stats, halloffame=hof, verbose=True)
 
     # Extract data from logbook
     gen = []
@@ -131,22 +145,21 @@ def main():
     end_time  = time.time()
     algo_time = end_time - start_time
     print()
-    print("Algorithm execution time:", algo_time)
+    print(f"Algorithm execution time: {algo_time:.2f} seconds")
 
-    # Retrieve the best individual
-    best_ind_standard = hof[0]
-    print("best_ind_standard")
-    best_ind_original = [ecopoints_mapping[point] for point in best_ind_standard]
-    best_route = [CENTRAL] + best_ind_original + [CENTRAL]
-    best_distance = evaluate(best_ind_standard)[0]
+    # Retrieve and print the top 3 individuals from the Hall of Fame
+    for rank, best_ind_standard in enumerate(hof[:3]):
+        print(f"Rank {rank + 1} best_ind_standard:")
+        best_ind_original = [ecopoints_mapping[point] for point in best_ind_standard]
+        best_route = [CENTRAL] + best_ind_original + [CENTRAL]
+        best_distance = evaluate(best_ind_standard, distance_matrix, ecopoints_mapping)[0]
 
-    # Output the result, add strating "C" manually, 
-    #if node is 0 then it' back at the central (should always be the last node).
-    result = "C, " + ", ".join([f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}C" 
-                                if best_route[i+1] == 0 
-                                else f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}E{best_route[i+1]:02d}" 
-                                for i in range(len(best_route)-1)]) + f", Total = {best_distance:.1f} Km"
-    print("Best route:", result)
+        # Output the result, add starting "C" manually
+        result = "C, " + ", ".join([f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}C" 
+                                    if best_route[i+1] == 0 
+                                    else f"{distance_matrix[best_route[i]][best_route[i+1]]:.1f}E{best_route[i+1]:02d}" 
+                                    for i in range(len(best_route)-1)]) + f", Total={best_distance:.1f} Km"
+        print(f"Best route (Rank {rank + 1}):", result)
 
     # Re-open the Logbook.csv and extract values from the second line
     logbook_df = pd.read_csv("Logbook.csv")
@@ -168,7 +181,6 @@ def main():
     plt.legend()
     plt.savefig("max_avg_min.png")  # Save the plot as a PNG file
     plt.close()  # Close the plot to prevent it from being displayed
-    #print("Plot saved as plot.png")
 
     # Create a directed graph to visualize the best route
     G = nx.DiGraph()
