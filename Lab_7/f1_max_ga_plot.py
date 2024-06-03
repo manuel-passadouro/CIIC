@@ -48,9 +48,9 @@ def main():
     toolbox.register("select", tools.selTournament, tournsize=3)
 
     # Genetic Algorithm parameters
-    population_size = 300
-    generations = 50
-    cxpb = 0.5  # Crossover probability
+    population_size = 30
+    generations = 100
+    cxpb = 0.6 # Crossover probability
     mutpb = 0.2  # Mutation probability
 
     # Initialize population
@@ -66,12 +66,50 @@ def main():
     stats.register("min", min)
     stats.register("max", max)
 
+    # Lists to store the evolution of x1, x2, and max f1 for each generation
+    x1_evolution = []
+    x2_evolution = []
+    f1_max_evolution = []
+
+    # Define a function to log the evolution data
+    def logbook_record(pop):
+        best_ind = tools.selBest(pop, 1)[0]
+        x1, x2 = best_ind
+        f1_value = best_ind.fitness.values[0]
+        x1_evolution.append(x1)
+        x2_evolution.append(x2)
+        f1_max_evolution.append(f1_value)
+
     # Run the Genetic Algorithm
-    algorithms.eaSimple(population, toolbox, cxpb, mutpb, generations, stats=stats, halloffame=hof, verbose=True)
+    for gen in range(generations):
+        population = algorithms.varAnd(population, toolbox, cxpb, mutpb)
+        invalid_ind = [ind for ind in population if not ind.fitness.valid]
+        fitnesses = map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
+        population = toolbox.select(population, len(population))
+        hof.update(population)
+        logbook_record(population)
 
     # Print the best individual
     best_ind = hof[0]
     print("Best individual is:", best_ind, best_ind.fitness.values)
+
+    # Plot the evolution of x1, x2, and max f1 on the same plot
+    generations_range = range(generations)
+
+    plt.figure(figsize=(10, 6))
+
+    plt.plot(generations_range, x1_evolution, label='x1')
+    plt.plot(generations_range, x2_evolution, label='x2')
+    plt.plot(generations_range, f1_max_evolution, label='max f1', linestyle='--')
+    
+    plt.xlabel('Generation')
+    plt.ylabel('Values')
+    plt.title('Evolution of x1, x2, and max f1')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f'evolution.png')
 
     # 3D plot of f1
     fig = plt.figure()
@@ -87,7 +125,7 @@ def main():
     for i, (elev, azim) in enumerate(angles):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-        ax.plot_surface(x, y, z,alpha =0.75, cmap='viridis')
+        ax.plot_surface(x, y, z, alpha=0.75, cmap='viridis')
 
         # Mark the best individual found by the genetic algorithm
         best_x1, best_x2 = best_ind
@@ -99,9 +137,9 @@ def main():
         ax.set_zlabel('f1(X1, X2)')
 
         ax.view_init(elev=elev, azim=azim)
-        plt.savefig(f'f1_3D_{elev}_{azim}.pdf')
+        plt.savefig(f'f1_GA_3D_{elev}_{azim}.png')
         plt.close(fig)
-        print(f"Plot saved as 'f1_#3D{elev}_{azim}.pdf'.")
+        print(f"Plot saved as 'f1_GA_3D_{elev}_{azim}.png'.")
 
 if __name__ == "__main__":
     main()
