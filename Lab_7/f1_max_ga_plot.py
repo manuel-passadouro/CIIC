@@ -1,8 +1,10 @@
 import random
 import math
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from colorama import init, Fore
 
 from deap import base, creator, tools, algorithms
 
@@ -27,6 +29,9 @@ def f1(individual):
 
 # Define the DEAP toolbox and the Genetic Algorithm
 def main():
+
+    # Count the time
+    start_time = time.time()
     # Define the creator
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
@@ -48,9 +53,9 @@ def main():
     toolbox.register("select", tools.selTournament, tournsize=3)
 
     # Genetic Algorithm parameters
-    population_size = 30
-    generations = 100
-    cxpb = 0.6 # Crossover probability
+    population_size = 50
+    generations = 40
+    cxpb = 0.5 # Crossover probability
     mutpb = 0.2  # Mutation probability
 
     # Initialize population
@@ -95,6 +100,14 @@ def main():
     best_ind = hof[0]
     print("Best individual is:", best_ind, best_ind.fitness.values)
 
+    end_time  = time.time()
+    total_time = end_time - start_time
+    print()
+    print(f"{Fore.YELLOW}Algorithm execution time:")
+    print()
+    print(f"{Fore.BLUE}{total_time:.2f} seconds")
+    print()
+
     # Plot the evolution of x1, x2, and max f1 on the same plot
     generations_range = range(generations)
 
@@ -102,11 +115,11 @@ def main():
 
     plt.plot(generations_range, x1_evolution, label='x1')
     plt.plot(generations_range, x2_evolution, label='x2')
-    plt.plot(generations_range, f1_max_evolution, label='max f1', linestyle='--')
+    plt.plot(generations_range, f1_max_evolution, label='Best Fittness')
     
     plt.xlabel('Generation')
-    plt.ylabel('Values')
-    plt.title('Evolution of x1, x2, and max f1')
+    plt.ylabel('Value')
+    plt.title('Evolution of Best Fitness, x1, and x2')
     plt.legend()
     plt.grid(True)
     plt.savefig(f'evolution.png')
@@ -140,6 +153,8 @@ def main():
         plt.savefig(f'f1_GA_3D_{elev}_{azim}.png')
         plt.close(fig)
         print(f"Plot saved as 'f1_GA_3D_{elev}_{azim}.png'.")
+
+        print(f1(best_ind)[0])
 
 if __name__ == "__main__":
     main()
